@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(GGB C)
+project(GGB)
 
 if (WIN32)
     set(OpenCV_DIR "C:\\_myLibs\\opencv-4.10\\build")

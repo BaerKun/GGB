@@ -1,8 +1,8 @@
 #include "object.h"
-#include "utils.h"
 #include "geom_utils.h"
 #include "geom_errors.h"
 #include "board.h"
+#include "utils.h"
 
 #include <stdlib.h>
 
@@ -12,17 +12,18 @@ static PointObject *pointDataSet = NULL;
 GeomObject *pointSet = NULL, *lineSet = NULL, *circleSet = NULL;
 
 
-static int getArgs(ObjectType type, const char *str1, const char *str2, ObjectSelector *arg);
+static int getArgs(ObjectType type, const char *arg1, const char *arg2, ObjectSelector *arg);
 
-static PointObject *createPointData(Point2f pt, PointObject **parents, int numParents, Point2f (*derive)(PointObject *));
+static PointObject *createPointData(Point2f pt, PointObject **parents, int numParents,
+                                    Point2f (*derive)(PointObject *));
 
 static GeomObject *createGeomObject(ObjectType type, const ObjectSelector *arg, uint64_t id, int show, int rgb);
 
-static int getOptionalObjectArgs(const char **argv, const char **endptr, int64_t *id, int *show, int *rgb);
+static int getOptionalObjectArgs(const char **argv, const char **endptr, uint64_t *id, int *show, int *rgb);
 
 static GeomObject *findObjectHelper(GeomObject *head, uint64_t id);
 
-static Point2f midpointCallback(const PointObject *pt);
+static Point2f midpointCallback(PointObject *pt);
 
 
 // public
@@ -51,13 +52,12 @@ GeomObject *findObject(const ObjectType type, const uint64_t id) {
 }
 
 int create(const int argc, const char **argv) {
-    const char **endptr = argv + argc;
     if (argc == 1)
         return throwError(ERROR_NO_ARG_GIVEN, noArgGiven(*argv));
 
     ObjectType type;
     ObjectSelector arg;
-    switch (strhash64(*++argv)) {
+    switch (strhash64(argv[1])) {
         case STR_HASH64('p', 'o', 'i', 'n', 't', 0, 0, 0):
             type = POINT;
             break;
@@ -77,29 +77,29 @@ int create(const int argc, const char **argv) {
             return throwError(ERROR_HELP, "Usage: create <object> <arg1> <arg2> [as <name>]");
         default:
             return throwError(ERROR_INVALID_ARG, invalidArg("object-type", "Please point/line/ray/seg/circle"));
-    } {
-        const char *arg1 = ++argv == endptr ? NULL : *argv;
-        const char *arg2 = ++argv == endptr ? NULL : *argv;
-        const int error = getArgs(type, arg1, arg2, &arg);
-        if (error != 0)
-            return error;
     }
 
-    int64_t id;
+    if (argc < 4)
+        return throwError(ERROR_NOT_ENOUGH_ARG, notEnoughArg(*argv));
+
+    int error = getArgs(type, argv[2], argv[3], &arg);
+    if (error != 0)
+        return error;
+
+    uint64_t id;
     int show, rgb;
-    const int error = getOptionalObjectArgs(++argv, endptr, &id, &show, &rgb);
+    error = getOptionalObjectArgs(argv + 4, argv + argc, &id, &show, &rgb);
     if (error != 0)
         return error;
 
     const GeomObject *newObj = createGeomObject(type, &arg, id, show, rgb);
 
-    if (show && newObj != NULL)
+    if (show)
         showObject(newObj, rgb);
     return 0;
 }
 
 int midpoint(const int argc, const char **argv) {
-    const char **endptr = argv + argc;
     if (argc == 1)
         return throwError(ERROR_NO_ARG_GIVEN, noArgGiven(*argv));
 
@@ -115,18 +115,18 @@ int midpoint(const int argc, const char **argv) {
         return throwError(ERROR_NOT_ENOUGH_ARG, notEnoughArg(*argv));
     }
 
-    int64_t id;
+    uint64_t id;
     int show, rgb;
-    const int error = getOptionalObjectArgs(argv + 3, endptr, &id, &show, &rgb);
+    const int error = getOptionalObjectArgs(argv + 3, argv + argc, &id, &show, &rgb);
     if (error != 0)
         return error;
 
     PointObject *parents[2] = {pt1->ptr->point, pt2->ptr->point};
     const PointObject *mid = createPointData(midpt(pt1->ptr->point->coord, pt2->ptr->point->coord),
-                                             parents, 2, midpointCallback);
+                                             parents, 2, &midpointCallback);
 
     const GeomObject *newObj = createGeomObject(POINT, (ObjectSelector *) &mid, id, show, rgb);
-    if (show && newObj != NULL)
+    if (show)
         showObject(newObj, rgb);
 
     return 0;
@@ -134,10 +134,9 @@ int midpoint(const int argc, const char **argv) {
 
 
 // private
-static Point2f midpointCallback(const PointObject *pt) {
+static Point2f midpointCallback(PointObject *pt) {
     return midpt(pt[0].coord, pt[1].coord);
 }
-
 
 static GeomObject *findObjectHelper(GeomObject *head, const uint64_t id) {
     while (head != NULL) {
@@ -228,7 +227,7 @@ static GeomObject *createGeomObject(const ObjectType type, const ObjectSelector 
 
 
 static inline int randomColor() {
-    return random() & 0xffffff;
+    return (int) (random32() & 0xffffff);
 }
 
 static uint64_t getDefaultId() {
@@ -250,18 +249,14 @@ static void setRadius(CircleObject *obj, const float radius) {
     obj->pt = createPointData((Point2f){obj->center->coord.x + radius, obj->center->coord.y}, NULL, 0, NULL);
 }
 
-static int getPointArg(const char *str1, const char *str2, PointObject **arg) {
+static int getPointArg(const char *arg1, const char *arg2, PointObject **arg) {
     char *end;
 
-    if (str1 == NULL)
-        return throwError(ERROR_NOT_ENOUGH_ARG, notEnoughArg("create"));
-    const float x = strtof(str1, &end);
+    const float x = strtof(arg1, &end);
     if (*end != '\0')
         return throwError(ERROR_INVALID_ARG, invalidArg("x-coord", NULL));
 
-    if (str2 == NULL)
-        return throwError(ERROR_NOT_ENOUGH_ARG, notEnoughArg("create"));
-    const float y = strtof(str2, &end);
+    const float y = strtof(arg2, &end);
     if (*end != '\0')
         return throwError(ERROR_INVALID_ARG, invalidArg("y-coord", NULL));
 
@@ -269,36 +264,32 @@ static int getPointArg(const char *str1, const char *str2, PointObject **arg) {
     return 0;
 }
 
-static int getLineArg(const char *str1, const char *str2, LineObject *arg) {
-    if (str1 == NULL) return throwError(ERROR_NOT_ENOUGH_ARG, notEnoughArg("create"));
-    const uint64_t id1 = strhash64(str1);
+static int getLineArg(const char *arg1, const char *arg2, LineObject *arg) {
+    const uint64_t id1 = strhash64(arg1);
     const GeomObject *obj = findObjectHelper(pointSet, id1);
     if (obj == NULL)
-        return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(str1));
+        return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(arg1));
     arg->pt1 = obj->ptr->point;
 
-    if (str2 == NULL) return throwError(ERROR_NOT_ENOUGH_ARG, notEnoughArg("create"));
-    const uint64_t id2 = strhash64(str2);
+    const uint64_t id2 = strhash64(arg2);
     obj = findObjectHelper(pointSet, id2);
     if (obj == NULL)
-        return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(str2));
+        return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(arg2));
     arg->pt2 = obj->ptr->point;
 
     return 0;
 }
 
-static int getCircleArg(const char *str1, const char *str2, CircleObject *arg) {
-    if (str1 == NULL) return throwError(ERROR_NOT_ENOUGH_ARG, notEnoughArg("create"));
-    const uint64_t id1 = strhash64(str1);
+static int getCircleArg(const char *arg1, const char *arg2, CircleObject *arg) {
+    const uint64_t id1 = strhash64(arg1);
     const GeomObject *obj = findObjectHelper(pointSet, id1);
     if (obj == NULL)
-        return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(str1));
+        return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(arg1));
     arg->center = obj->ptr->point;
 
-    if (str2 == NULL) return throwError(ERROR_NOT_ENOUGH_ARG, notEnoughArg("create"));
-    if (*str2 >= '0' && *str2 <= '9') {
+    if ((*arg2 >= '0' && *arg2 <= '9') || *arg2 == '.') {
         char *end;
-        const float radus = strtof(str2, &end);
+        const float radus = strtof(arg2, &end);
         if (*end != '\0')
             return throwError(ERROR_INVALID_ARG, invalidArg("radius", NULL));
 
@@ -306,27 +297,27 @@ static int getCircleArg(const char *str1, const char *str2, CircleObject *arg) {
         return 0;
     }
 
-    const uint64_t id2 = strhash64(str2);
+    const uint64_t id2 = strhash64(arg2);
     obj = findObjectHelper(pointSet, id2);
     if (obj == NULL)
-        return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(str2));
+        return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(arg2));
     arg->pt = obj->ptr->point;
 
     return 0;
 }
 
-static int getArgs(const ObjectType type, const char *str1, const char *str2, ObjectSelector *arg) {
+static int getArgs(const ObjectType type, const char *arg1, const char *arg2, ObjectSelector *arg) {
     switch (type) {
         case POINT:
-            return getPointArg(str1, str2, &arg->point);
+            return getPointArg(arg1, arg2, &arg->point);
         case CIRCLE:
-            return getCircleArg(str1, str2, &arg->circle);
+            return getCircleArg(arg1, arg2, &arg->circle);
         default:
-            return getLineArg(str1, str2, &arg->line);
+            return getLineArg(arg1, arg2, &arg->line);
     }
 }
 
-static int getOptionalObjectArgs(const char **argv, const char **endptr, int64_t *id, int *show, int *rgb) {
+static int getOptionalObjectArgs(const char **argv, const char **endptr, uint64_t *id, int *show, int *rgb) {
     *id = 0;
     *show = 1;
     *rgb = -1;
@@ -350,7 +341,7 @@ static int getOptionalObjectArgs(const char **argv, const char **endptr, int64_t
             case STR_HASH64('-', '-', 'c', 'o', 'l', 'o', 'r', 0):
                 if (++argv == endptr)
                     break;
-                *rgb = strtol(*argv++, (char **) &end, 16);
+                *rgb = (int) strtol(*argv++, (char **) &end, 16);
                 if (*end != '\0')
                     return throwError(ERROR_INVALID_ARG, invalidColor());
                 break;

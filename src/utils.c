@@ -9,7 +9,7 @@ typedef struct pcg_state_setseq_64 {
 
 static pcg32_random_t pcg32_global = {0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL};
 
-uint32_t random(void) {
+uint32_t random32(void) {
     const uint64_t oldstate = pcg32_global.state;
     pcg32_global.state = oldstate * 6364136223846793005ULL + pcg32_global.inc;
     const uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
@@ -17,12 +17,12 @@ uint32_t random(void) {
     return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
 }
 
-void srandom(const uint64_t initstate, const uint64_t initseq) {
+void randomSeed(const uint64_t initstate, const uint64_t initseq) {
     pcg32_global.state = 0U;
     pcg32_global.inc = (initseq << 1u) | 1u;
-    random();
+    random32();
     pcg32_global.state += initstate;
-    random();
+    random32();
 }
 
 const char *invalidColor() {

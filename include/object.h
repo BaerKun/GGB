@@ -2,6 +2,7 @@
 #define OBJECT_H
 
 #include "geometry.h"
+#include <stdint.h>
 
 typedef enum {
     ANY, POINT, CIRCLE, LINE, RAY, SEG
@@ -51,7 +52,7 @@ struct GeomObject_ {
     ObjectSelector ptr[0];
 };
 
-GeomObject *findObject(ObjectType type, unsigned long long id);
+GeomObject *findObject(ObjectType type, uint64_t id);
 
 int create(int argc, const char **argv);
 

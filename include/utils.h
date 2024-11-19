@@ -13,9 +13,9 @@ uint64_t strhash64(const char *str);
 
 int strtobool(const char *str, const char **endptr);
 
-unsigned random();
+uint32_t random32();
 
-void srandom(unsigned long long initstate, unsigned long long initseq);
+void randomSeed(uint64_t initstate, uint64_t initseq);
 
 const char *invalidColor();
 

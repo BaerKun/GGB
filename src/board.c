@@ -68,10 +68,10 @@ static void drawLineHelper(const LineObject line, const ObjectType type, const i
     const Vector2f vec = {pt2.x - pt1.x, pt2.y - pt1.y};
     const Point2i imagePt = toImageCoord(pt1, origin);
 
-    if (vec.x == 0.f || fabsf(vec.y / vec.x) > (float) height / width) {
+    if (vec.x == 0.f || fabsf(vec.y / vec.x) > (float) height / (float)width) {
         const float kxy = vec.x / vec.y;
-        const int x0 = imagePt.x + (int) (imagePt.y * kxy);
-        const int xh = imagePt.x - (int) ((height - imagePt.y) * kxy);
+        const int x0 = imagePt.x + (int) ((float)imagePt.y * kxy);
+        const int xh = imagePt.x - (int) ((float)(height - imagePt.y) * kxy);
         if (type == LINE) {
             drawLine(imageWindow, (Point2i){x0, 0}, (Point2i){xh, height}, color, 2);
             return;
@@ -84,8 +84,8 @@ static void drawLineHelper(const LineObject line, const ObjectType type, const i
     }
 
     const float kyx = vec.y / vec.x;
-    const int yw = imagePt.y - (int) ((width - imagePt.x) * kyx);
-    const int y0 = imagePt.y + (int) (imagePt.x * kyx);
+    const int yw = imagePt.y - (int) ((float)(width - imagePt.x) * kyx);
+    const int y0 = imagePt.y + (int) ((float)imagePt.x * kyx);
 
     if (type == LINE) {
         drawLine(imageWindow, (Point2i){0, y0}, (Point2i){width, yw}, color, 2);
@@ -127,7 +127,7 @@ void showObject(const GeomObject *obj, int color) {
 
         case CIRCLE:
             drawCircle(imageWindow, toImageCoord(ptr->circle.center->coord, origin),
-                       getRadius(ptr->circle), color, 2);
+                       (int)getRadius(ptr->circle), color, 2);
             break;
         default:
             drawLineHelper(ptr->line, obj->type, color);
@@ -171,7 +171,7 @@ int show(const int argc, const char **argv) {
     }
 
     char *end;
-    const int color = strtol(argv[2], &end, 16);
+    const int color = (int)strtol(argv[2], &end, 16);
     if (*end != '\0')
         return throwError(ERROR_INVALID_ARG, invalidColor());
 

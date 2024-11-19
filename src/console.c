@@ -10,12 +10,11 @@
 #include <string.h>
 
 extern Window *mainWindow, *consoleWindow;
-extern const char *errorText;
 extern int errorType;
+extern const char *errorText;
 
 static char strCmdLine[256] = {0};
 static int curser = 0;
-
 
 static void reflashConsole() {
     windowFill(consoleWindow, 0x88, 0x88, 0x88);
@@ -124,7 +123,7 @@ static void mouseCallback(const int event, const int x, const int y, const int f
 
 void console() {
     const uint64_t seed = time(NULL) ^ (uint64_t)console;
-    srandom(seed, seed << 1 | 1);
+    randomSeed(seed, seed << 1 | 1);
 
     windowFill(consoleWindow, 0x88, 0x88, 0x88);
     showWindow(mainWindow);
