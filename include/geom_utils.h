@@ -4,6 +4,8 @@
 #include "geometry.h"
 #include <math.h>
 
+#define A_HUGE_VALF ((float) 0x100000)
+
 static inline Point2i toImageCoord(const Point2f p, const Point2i origin) {
     return (Point2i){(int) roundf(p.x) + origin.x, origin.y - (int) roundf(p.y)};
 }
@@ -26,6 +28,10 @@ static inline float sqr(const float a) {
 
 static inline float sum_sqr(const float a, const float b) {
     return a * a + b * b;
+}
+
+static inline Vector2f vec2_from_2p(const Point2f p1, const Point2f p2) {
+    return (Vector2f){p2.x - p1.x, p2.y - p1.y};
 }
 
 static inline float sqr_vec2(const Vector2f vec) {

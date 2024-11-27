@@ -1,3 +1,4 @@
+#include "points_manage.h"
 #include "object.h"
 #include "geom_utils.h"
 #include "geom_errors.h"
@@ -6,24 +7,18 @@
 
 #include <stdlib.h>
 
-
 // private
-static PointObject *pointDataSet = NULL;
 GeomObject *pointSet = NULL, *lineSet = NULL, *circleSet = NULL;
-
 
 static int getArgs(ObjectType type, const char *arg1, const char *arg2, ObjectSelector *arg);
 
-static PointObject *createPointData(Point2f pt, PointObject **parents, int numParents,
-                                    Point2f (*derive)(PointObject *));
-
-static GeomObject *createGeomObject(ObjectType type, const ObjectSelector *arg, uint64_t id, int show, int rgb);
+static void createGeomObject(ObjectType type, const ObjectSelector *arg, uint64_t id, int show, int rgb);
 
 static int getOptionalObjectArgs(const char **argv, const char **endptr, uint64_t *id, int *show, int *rgb);
 
 static GeomObject *findObjectHelper(GeomObject *head, uint64_t id);
 
-static Point2f midpointCallback(PointObject *pt);
+static Point2f midpointCallback(PointObject **pt);
 
 
 // public
@@ -92,10 +87,8 @@ int create(const int argc, const char **argv) {
     if (error != 0)
         return error;
 
-    const GeomObject *newObj = createGeomObject(type, &arg, id, show, rgb);
-
-    if (show)
-        showObject(newObj, rgb);
+    createGeomObject(type, &arg, id, show, rgb);
+    reflashBorad();
     return 0;
 }
 
@@ -125,17 +118,52 @@ int midpoint(const int argc, const char **argv) {
     const PointObject *mid = createPointData(midpt(pt1->ptr->point->coord, pt2->ptr->point->coord),
                                              parents, 2, &midpointCallback);
 
-    const GeomObject *newObj = createGeomObject(POINT, (ObjectSelector *) &mid, id, show, rgb);
-    if (show)
-        showObject(newObj, rgb);
-
+    createGeomObject(POINT, (ObjectSelector *) &mid, id, show, rgb);
+    reflashBorad();
     return 0;
 }
 
+int move_pt(const int argc, const char **argv) {
+    if (argc == 1)
+        return throwError(ERROR_NO_ARG_GIVEN, noArgGiven(*argv));
+
+    PointObject *pts[16];
+    int countpts = 0;
+    for (const char **arg = argv + 1; countpts < 16; ++countpts, ++arg) {
+        const uint64_t hash = strhash64(*arg);
+        if(hash == STR_HASH64('t', 'o', 0, 0, 0, 0, 0, 0))
+            break;
+
+        const GeomObject *src = findObject(POINT, hash);
+        if (src == NULL)
+            return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(*arg));
+
+        pts[countpts] = src->ptr->point;
+    }
+    if (countpts == 0)
+        return throwError(ERROR_NOT_ENOUGH_ARG, notEnoughArg(*argv));
+
+    Point2f dst[16];
+    int countdst = 0;
+    for(const char **arg = argv + 2 + countpts, **end = argv + argc; arg != end && countdst < countpts; ++countdst, ++arg) {
+        const uint64_t hash = strhash64(*arg);
+        const GeomObject *dst_ = findObject(POINT, hash);
+        if (dst_ == NULL)
+            return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(*arg));
+
+        dst[countdst] = dst_->ptr->point->coord;
+    }
+    if (countdst != countpts)
+        return throwError(ERROR_INVALID_ARG, "The count of dst is different from pts");
+
+    movePoints(pts, dst, countpts);
+    reflashBorad();
+    return 0;
+}
 
 // private
-static Point2f midpointCallback(PointObject *pt) {
-    return midpt(pt[0].coord, pt[1].coord);
+static Point2f midpointCallback(PointObject **pt) {
+    return midpt(pt[0]->coord, pt[1]->coord);
 }
 
 static GeomObject *findObjectHelper(GeomObject *head, const uint64_t id) {
@@ -147,35 +175,11 @@ static GeomObject *findObjectHelper(GeomObject *head, const uint64_t id) {
     return head;
 }
 
-static PointObject *createPointData(const Point2f pt, PointObject **parents, const int numParents,
-                                    Point2f (*derive)(PointObject *)) {
-    PointObject *obj = malloc(sizeof(PointObject) + sizeof(PointObject *) * numParents);
-    obj->next = pointDataSet;
-    pointDataSet = obj;
-
-    obj->coord = pt;
-    obj->derive = derive;
-
-    if (numParents == 0)
-        return obj;
-
-    for (int i = 0; i < numParents; ++i) {
-        PointObject *parent = parents[i];
-        SubPoint *subpt = malloc(sizeof(SubPoint));
-
-        *subpt = (SubPoint){obj, parent->children};
-        parent->children = subpt;
-        obj->parents[i] = parent;
-    }
-
-    return obj;
-}
-
 static GeomObject *getNewObject(const ObjectType type) {
     GeomObject *obj;
     switch (type) {
         case POINT:
-            obj = malloc(sizeof(GeomObject) + sizeof(PointObject));
+            obj = malloc(sizeof(GeomObject) + sizeof(PointObject *));
             obj->next = pointSet;
             pointSet = obj;
             return obj;
@@ -196,11 +200,11 @@ static GeomObject *getNewObject(const ObjectType type) {
     }
 }
 
-static GeomObject *createGeomObject(const ObjectType type, const ObjectSelector *arg, const uint64_t id, const int show,
-                                    const int rgb) {
+static void createGeomObject(const ObjectType type, const ObjectSelector *arg, const uint64_t id, const int show,
+                             const int rgb) {
     GeomObject *obj = getNewObject(type);
     if (obj == NULL)
-        return NULL;
+        return;
 
     obj->id = id;
     obj->type = type;
@@ -221,10 +225,7 @@ static GeomObject *createGeomObject(const ObjectType type, const ObjectSelector 
         default:
             break;
     }
-
-    return obj;
 }
-
 
 static inline int randomColor() {
     return (int) (random32() & 0xffffff);
@@ -243,10 +244,6 @@ static uint64_t getDefaultId() {
     } while (*c != '#');
 
     return 0;
-}
-
-static void setRadius(CircleObject *obj, const float radius) {
-    obj->pt = createPointData((Point2f){obj->center->coord.x + radius, obj->center->coord.y}, NULL, 0, NULL);
 }
 
 static int getPointArg(const char *arg1, const char *arg2, PointObject **arg) {
@@ -293,7 +290,8 @@ static int getCircleArg(const char *arg1, const char *arg2, CircleObject *arg) {
         if (*end != '\0')
             return throwError(ERROR_INVALID_ARG, invalidArg("radius", NULL));
 
-        setRadius(arg, radus);
+        arg->pt = NULL;
+        arg->radius = radus;
         return 0;
     }
 
@@ -306,6 +304,13 @@ static int getCircleArg(const char *arg1, const char *arg2, CircleObject *arg) {
     return 0;
 }
 
+static Point2f lineCallback(PointObject **pt) {
+    const Point2f pt1 = pt[0]->coord;
+    const Vector2f vec = vec2_from_2p(pt1, pt[1]->coord);
+    const float norm = norm_vec2(vec);
+    return (Point2f){pt1.x + vec.x / norm * A_HUGE_VALF, pt1.y + vec.y / norm * A_HUGE_VALF};
+}
+
 static int getArgs(const ObjectType type, const char *arg1, const char *arg2, ObjectSelector *arg) {
     switch (type) {
         case POINT:
@@ -313,8 +318,29 @@ static int getArgs(const ObjectType type, const char *arg1, const char *arg2, Ob
         case CIRCLE:
             return getCircleArg(arg1, arg2, &arg->circle);
         default:
-            return getLineArg(arg1, arg2, &arg->line);
+            const int error = getLineArg(arg1, arg2, &arg->line);
+            if (error != 0)
+                return error;
+
+            LineObject *line = &arg->line;
+            PointObject *parents[2] = {line->pt1, line->pt2};
+            switch (type) {
+                case SEG:
+                    line->showPt1 = line->pt1;
+                    line->showPt2 = line->pt2;
+                    break;
+                case RAY:
+                    line->showPt1 = line->pt1;
+                    line->showPt2 = createPointData(lineCallback(parents), parents, 2, lineCallback);
+                    break;
+                default:
+                    line->showPt2 = createPointData(lineCallback(parents), parents, 2, lineCallback);
+                    parents[0] = line->pt2;
+                    parents[1] = line->pt1;
+                    line->showPt1 = createPointData(lineCallback(parents), parents, 2, lineCallback);
+            }
     }
+    return 0;
 }
 
 static int getOptionalObjectArgs(const char **argv, const char **endptr, uint64_t *id, int *show, int *rgb) {

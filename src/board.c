@@ -7,14 +7,14 @@
 #include "geom_utils.h"
 #include "utils.h"
 
-
 extern Window *imageWindow;
 extern Point2i origin;
 extern GeomObject *pointSet, *lineSet, *circleSet;
 
-
-static inline float getRadius(const CircleObject circle) {
-    return dist2f(circle.center->coord, circle.pt->coord);
+static inline float getCircleRadius(CircleObject *cr) {
+    if (cr->pt == NULL)
+        return cr->radius;
+    return cr->radius = dist2f(cr->center->coord, cr->pt->coord);
 }
 
 static inline float sqrdist_lv(const Vector2f line_dir, const Vector2f vec) {
@@ -22,117 +22,42 @@ static inline float sqrdist_lv(const Vector2f line_dir, const Vector2f vec) {
 }
 
 static float sqrdist_lp(const GeomObject *line, const Point2f p) {
-    const LineObject lineObj = line->ptr->line;
-    const Vector2f vec1 = {p.x - lineObj.pt1->coord.x, p.y - lineObj.pt1->coord.y},
-            vec2 = {p.x - lineObj.pt2->coord.x, p.y - lineObj.pt2->coord.y},
-            lineDir = {lineObj.pt2->coord.x - lineObj.pt1->coord.x, lineObj.pt2->coord.y - lineObj.pt1->coord.y};
+    const Point2f p1 = line->ptr->line.pt1->coord;
+    const Point2f p2 = line->ptr->line.pt2->coord;
+    const Vector2f vec1 = vec2_from_2p(p1, p),
+            vec2 = vec2_from_2p(p2, p),
+            lineDir = vec2_from_2p(p1, p2);
 
     if (line->type == LINE)
         return sqrdist_lv(lineDir, vec1);
 
-    if (line->type == SEG)
-        switch ((vec2_dot(vec1, lineDir) > 0.f) | ((vec2_dot(vec2, lineDir) > 0.f) << 1)) {
-            case 1:
-                return sqrdist_lv(lineDir, vec1);
-            case 0:
-                return sqrdist(lineObj.pt1->coord, p);
-            case 3:
-                return sqrdist(lineObj.pt2->coord, p);
-            default:
-                return 9.f;
-        }
-
-    switch ((vec2_dot(vec1, lineDir) > 0.f) | ((vec2_dot(vec2, lineDir) > 0.f) << 1)) {
-        case 1:
-        case 3:
+    if (line->type == SEG) {
+        if (vec2_dot(vec1, lineDir) > 0.f && vec2_dot(vec2, lineDir) < 0.f)
             return sqrdist_lv(lineDir, vec1);
-        case 0:
-            return sqrdist(lineObj.pt1->coord, p);
-        default:
-            return 9.f;
+        return A_HUGE_VALF;
     }
+
+    if (vec2_dot(vec1, lineDir) > 0.f)
+        return sqrdist_lv(lineDir, vec1);
+    return A_HUGE_VALF;
 }
 
-static void drawLineHelper(const LineObject line, const ObjectType type, const int color) {
-    const Point2f pt1 = line.pt1->coord;
-    const Point2f pt2 = line.pt2->coord;
-
-    if (type == SEG) {
-        drawLine(imageWindow, toImageCoord(pt1, origin), toImageCoord(pt2, origin), color, 2);
-        return;
-    }
-
-    const int width = imageWindow->width;
-    const int height = imageWindow->height;
-
-    const Vector2f vec = {pt2.x - pt1.x, pt2.y - pt1.y};
-    const Point2i imagePt = toImageCoord(pt1, origin);
-
-    if (vec.x == 0.f || fabsf(vec.y / vec.x) > (float) height / (float)width) {
-        const float kxy = vec.x / vec.y;
-        const int x0 = imagePt.x + (int) ((float)imagePt.y * kxy);
-        const int xh = imagePt.x - (int) ((float)(height - imagePt.y) * kxy);
-        if (type == LINE) {
-            drawLine(imageWindow, (Point2i){x0, 0}, (Point2i){xh, height}, color, 2);
-            return;
-        }
-        if (vec.y < 0) {
-            drawLine(imageWindow, imagePt, (Point2i){xh, height}, color, 2);
-        } else
-            drawLine(imageWindow, imagePt, (Point2i){x0, 0}, color, 2);
-        return;
-    }
-
-    const float kyx = vec.y / vec.x;
-    const int yw = imagePt.y - (int) ((float)(width - imagePt.x) * kyx);
-    const int y0 = imagePt.y + (int) ((float)imagePt.x * kyx);
-
-    if (type == LINE) {
-        drawLine(imageWindow, (Point2i){0, y0}, (Point2i){width, yw}, color, 2);
-        return;
-    }
-    if (vec.x > 0) {
-        drawLine(imageWindow, imagePt, (Point2i){width, yw}, color, 2);
-    } else
-        drawLine(imageWindow, imagePt, (Point2i){0, y0}, color, 2);
-}
-
-static void reflashBorad() {
+void reflashBorad() {
     windowFill(imageWindow, 255, 255, 255);
 
-    for (const GeomObject *cr = circleSet; cr != NULL; cr = cr->next)
+    for (GeomObject *cr = circleSet; cr != NULL; cr = cr->next)
         if (cr->show)
-            showObject(cr, cr->color);
+            drawCircle(imageWindow, toImageCoord(cr->ptr->circle.center->coord, origin),
+                       (int) getCircleRadius(&cr->ptr->circle), cr->color, 2);
+
     for (const GeomObject *ln = lineSet; ln != NULL; ln = ln->next)
         if (ln->show)
-            showObject(ln, ln->color);
+            drawLine(imageWindow, toImageCoord(ln->ptr->line.showPt1->coord, origin),
+                     toImageCoord(ln->ptr->line.showPt2->coord, origin), ln->color, 2);
+
     for (const GeomObject *pt = pointSet; pt != NULL; pt = pt->next)
         if (pt->show)
-            showObject(pt, pt->color);
-}
-
-
-void showObject(const GeomObject *obj, int color) {
-    if (!obj->show)
-        return;
-
-    if (color == -1)
-        color = obj->color;
-
-    const ObjectSelector *ptr = obj->ptr;
-    switch (obj->type) {
-        case POINT:
-            drawPoint(imageWindow, toImageCoord(ptr->point->coord, origin), color);
-            break;
-
-        case CIRCLE:
-            drawCircle(imageWindow, toImageCoord(ptr->circle.center->coord, origin),
-                       (int)getRadius(ptr->circle), color, 2);
-            break;
-        default:
-            drawLineHelper(ptr->line, obj->type, color);
-            break;
-    }
+            drawPoint(imageWindow, toImageCoord(pt->ptr->point->coord, origin), pt->color);
 }
 
 GeomObject *mouseSelect(const int x, const int y) {
@@ -148,7 +73,7 @@ GeomObject *mouseSelect(const int x, const int y) {
             return ln;
 
     for (GeomObject *cr = circleSet; cr != NULL; cr = cr->next)
-        if (cr->show && dist2f(mouse, cr->ptr->circle.center->coord) - getRadius(cr->ptr->circle) < 5.f)
+        if (cr->show && dist2f(mouse, cr->ptr->circle.center->coord) - cr->ptr->circle.radius < 5.f)
             return cr;
 
     return NULL;
@@ -166,18 +91,18 @@ int show(const int argc, const char **argv) {
 
     if (argc == 2) {
         obj->show = 1;
-        showObject(obj, obj->color);
+        reflashBorad();
         return 0;
     }
 
     char *end;
-    const int color = (int)strtol(argv[2], &end, 16);
+    const int color = (int) strtol(argv[2], &end, 16);
     if (*end != '\0')
         return throwError(ERROR_INVALID_ARG, invalidColor());
 
     obj->show = 1;
     obj->color = color;
-    showObject(obj, color);
+    reflashBorad();
     return 0;
 }
 

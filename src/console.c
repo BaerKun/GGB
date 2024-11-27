@@ -103,6 +103,8 @@ int processCommand(char *buffer) {
             return load_src(argc, argv);
         case STR_HASH64('m', 'i', 'd', 'p', 'o', 'i', 'n', 't'):
             return midpoint(argc, argv);
+        case STR_HASH64('m', 'o', 'v', 'e', '-', 'p', 't', 0):
+            return move_pt(argc, argv);
         default:
             return throwError(ERROR_UNKOWN_COMMAND, unkownCommand(argv[0]));
     }
