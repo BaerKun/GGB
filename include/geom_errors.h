@@ -14,7 +14,7 @@ typedef enum {
 
 const char *objectNotFound(const char *name);
 
-const char *unkownCommand(const char *cmd);
+const char *unknownCommand(const char *cmd);
 
 const char *noArgGiven(const char *cmd);
 
@@ -24,7 +24,7 @@ const char *cannotOpenFileError(const char *filename);
 
 const char *invalidArg(const char *arg, const char *tips);
 
-const char *unkownArg(const char *arg);
+const char *unknownArgs(const char *arg);
 
 int throwError(GeomErrorType type, const char *text);
 

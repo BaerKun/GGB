@@ -4,14 +4,14 @@
 #include "geometry.h"
 #include <math.h>
 
-#define A_HUGE_VALF ((float) 0x100000)
+#define A_HUGE_VALF ((float) 0x10000)
 
 static inline Point2i toImageCoord(const Point2f p, const Point2i origin) {
     return (Point2i){(int) roundf(p.x) + origin.x, origin.y - (int) roundf(p.y)};
 }
 
 static inline Point2f toMathCoord(const Point2i p, const Point2i origin) {
-    return (Point2f){p.x - origin.x, origin.y - p.y};
+    return (Point2f){(float )(p.x - origin.x), (float)(origin.y - p.y)};
 }
 
 static inline float minf(const float a, const float b) {

@@ -1,5 +1,5 @@
 #include "points_manage.h"
-#include <stdlib.h>
+
 #define QUEUE_ELEMENT_TYPE PointObject *
 #include "queue.h"
 

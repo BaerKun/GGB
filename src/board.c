@@ -42,7 +42,7 @@ static float sqrdist_lp(const GeomObject *line, const Point2f p) {
     return A_HUGE_VALF;
 }
 
-void reflashBorad() {
+void refreshBoard() {
     windowFill(imageWindow, 255, 255, 255);
 
     for (GeomObject *cr = circleSet; cr != NULL; cr = cr->next)
@@ -62,14 +62,14 @@ void reflashBorad() {
 
 GeomObject *mouseSelect(const int x, const int y) {
     const Point2f mouse = toMathCoord((Point2i){x, y}, origin);
-    const float theshold = 25.f;
+    const float threshold = 25.f;
 
     for (GeomObject *pt = pointSet; pt != NULL; pt = pt->next)
-        if (pt->show && sqrdist(mouse, pt->ptr->point->coord) < theshold)
+        if (pt->show && sqrdist(mouse, pt->ptr->point->coord) < threshold)
             return pt;
 
     for (GeomObject *ln = lineSet; ln != NULL; ln = ln->next)
-        if (ln->show && sqrdist_lp(ln, mouse) < theshold)
+        if (ln->show && sqrdist_lp(ln, mouse) < threshold)
             return ln;
 
     for (GeomObject *cr = circleSet; cr != NULL; cr = cr->next)
@@ -91,7 +91,7 @@ int show(const int argc, const char **argv) {
 
     if (argc == 2) {
         obj->show = 1;
-        reflashBorad();
+        refreshBoard();
         return 0;
     }
 
@@ -102,7 +102,7 @@ int show(const int argc, const char **argv) {
 
     obj->show = 1;
     obj->color = color;
-    reflashBorad();
+    refreshBoard();
     return 0;
 }
 
@@ -117,6 +117,6 @@ int hide(const int argc, const char **argv) {
         return throwError(ERROR_NOT_FOUND_OBJECT, objectNotFound(argv[1]));
 
     obj->show = 0;
-    reflashBorad();
+    refreshBoard();
     return 0;
 }

@@ -3,7 +3,7 @@
 
 #include "object.h"
 
-void reflashBorad();
+void refreshBoard();
 
 GeomObject *mouseSelect(int x, int y);
 

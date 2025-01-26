@@ -88,7 +88,7 @@ int create(const int argc, const char **argv) {
         return error;
 
     createGeomObject(type, &arg, id, show, rgb);
-    reflashBorad();
+    refreshBoard();
     return 0;
 }
 
@@ -119,7 +119,7 @@ int midpoint(const int argc, const char **argv) {
                                              parents, 2, &midpointCallback);
 
     createGeomObject(POINT, (ObjectSelector *) &mid, id, show, rgb);
-    reflashBorad();
+    refreshBoard();
     return 0;
 }
 
@@ -157,7 +157,7 @@ int move_pt(const int argc, const char **argv) {
         return throwError(ERROR_INVALID_ARG, "The count of dst is different from pts");
 
     movePoints(pts, dst, countpts);
-    reflashBorad();
+    refreshBoard();
     return 0;
 }
 
@@ -312,13 +312,14 @@ static Point2f lineCallback(PointObject **pt) {
 }
 
 static int getArgs(const ObjectType type, const char *arg1, const char *arg2, ObjectSelector *arg) {
+    int error;
     switch (type) {
         case POINT:
             return getPointArg(arg1, arg2, &arg->point);
         case CIRCLE:
             return getCircleArg(arg1, arg2, &arg->circle);
         default:
-            const int error = getLineArg(arg1, arg2, &arg->line);
+            error = getLineArg(arg1, arg2, &arg->line);
             if (error != 0)
                 return error;
 
@@ -373,7 +374,7 @@ static int getOptionalObjectArgs(const char **argv, const char **endptr, uint64_
                 break;
 
             default:
-                return throwError(ERROR_UNKOWN_ARG, unkownArg(*argv));
+                return throwError(ERROR_UNKOWN_ARG, unknownArgs(*argv));
         }
     }
     if (*id == 0)

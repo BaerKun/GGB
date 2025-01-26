@@ -1,9 +1,8 @@
-#include "console.h"
-#include "object.h"
-#include "file_manage.h"
-#include "graphical.h"
 #include "geom_errors.h"
+#include "console.h"
+#include "graphical.h"
 #include "board.h"
+#include "file_manage.h"
 #include "utils.h"
 
 #include <time.h>
@@ -14,9 +13,9 @@ extern int errorType;
 extern const char *errorText;
 
 static char strCmdLine[256] = {0};
-static int curser = 0;
+static int cursor = 0;
 
-static void reflashConsole() {
+static void refreshConsole() {
     windowFill(consoleWindow, 0x88, 0x88, 0x88);
     if (strCmdLine[0] != '\0')
         drawText(consoleWindow, strCmdLine, (Point2i){10, 30}, 0x0e0e0e, 15);
@@ -31,8 +30,8 @@ static char *consoleGetLine() {
     while (1) {
         const char c = waitKey(0);
         // 鼠标回调
-        while (strCmdLine[curser] != 0)
-            ++curser;
+        while (strCmdLine[cursor] != 0)
+            ++cursor;
 
         switch (c) {
             case 27: // ESC
@@ -41,24 +40,27 @@ static char *consoleGetLine() {
             case -1: // 点击窗口叉叉（只有windows有效）
 #endif
                 return NULL;
+#ifdef __APPLE__
+            case 127: // delete
+#else
             case '\b':
-                if (curser != 0)
-                    strCmdLine[--curser] = 0;
+#endif
+                if (cursor != 0)
+                    strCmdLine[--cursor] = 0;
                 break;
             case '\n':
             case '\r':
-                memcpy(buffer, strCmdLine, curser + 1);
+                memcpy(buffer, strCmdLine, cursor + 1);
                 return buffer;
             default:
-                strCmdLine[curser++] = c;
+                strCmdLine[cursor++] = c;
         }
-
-        reflashConsole();
+        refreshConsole();
     }
 }
 
 static inline void pushback(const char *src) {
-    memcpy(strCmdLine + curser, src, 8);
+    memcpy(strCmdLine + cursor, src, 8);
 }
 
 static int splitArgs(char *buffer, const char **argv) {
@@ -106,18 +108,19 @@ int processCommand(char *buffer) {
         case STR_HASH64('m', 'o', 'v', 'e', '-', 'p', 't', 0):
             return move_pt(argc, argv);
         default:
-            return throwError(ERROR_UNKOWN_COMMAND, unkownCommand(argv[0]));
+            return throwError(ERROR_UNKOWN_COMMAND, unknownCommand(argv[0]));
     }
 }
 
 static void mouseCallback(const int event, const int x, const int y, const int flags, void *userdata) {
+    const GeomObject *obj;
     switch (event) {
         case EVENT_LBUTTONDOWN:
-            const GeomObject *obj = mouseSelect(x, y);
+            obj = mouseSelect(x, y);
             if (obj == NULL)
                 return;
             pushback((char *) &obj->id);
-            reflashConsole();
+            refreshConsole();
         default:
             break;
     }
@@ -135,10 +138,10 @@ void console() {
         char *cmdLine = consoleGetLine();
         if (cmdLine == NULL) break;
 
-        memset(strCmdLine, 0, curser);
-        curser = 0;
+        memset(strCmdLine, 0, cursor);
+        cursor = 0;
 
         processCommand(cmdLine);
-        reflashConsole();
+        refreshConsole();
     }
 }

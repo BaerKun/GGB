@@ -20,8 +20,6 @@ typedef struct Vector3f
     float x, y, z;
 } Vector3f;
 
-
 typedef Point2f Vector2f;
-typedef Point2i Vector2i;
 
 #endif //POINT_VECTOR_H

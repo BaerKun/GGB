@@ -31,7 +31,7 @@ static void enqueue(Queue *queue, QUEUE_ELEMENT_TYPE element){
 }
 
 static QUEUE_ELEMENT_TYPE dequeue(Queue *queue){
-    const QUEUE_ELEMENT_TYPE front = queue->elements[queue->front];
+    QUEUE_ELEMENT_TYPE const front = queue->elements[queue->front];
     if(++queue->front == queue->capacity)
         queue->front = 0;
     queue->size--;

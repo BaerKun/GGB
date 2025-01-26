@@ -13,7 +13,7 @@ const char *objectNotFound(const char *name) {
     return error;
 }
 
-const char *unkownCommand(const char *cmd) {
+const char *unknownCommand(const char *cmd) {
     static char error[32] = "Unknown command: ";
     memcpy(error + 17, cmd, 8);
     return error;
@@ -47,7 +47,7 @@ const char *invalidArg(const char *arg, const char *tips) {
     return errorTemplate;
 }
 
-const char *unkownArg(const char *arg) {
+const char *unknownArgs(const char *arg) {
     static char errorTemplate[19 + 16] = "Unknown argument: ";
     strncpy(errorTemplate + 18, arg, 16);
     return errorTemplate;

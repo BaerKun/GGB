@@ -1,10 +1,9 @@
 #include "file_manage.h"
 #include "console.h"
+#include "geom_errors.h"
 
 #include <stdio.h>
 #include <string.h>
-
-#include "geom_errors.h"
 
 extern const char *errorText;
 extern int errorType;
